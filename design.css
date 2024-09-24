@@ -1,0 +1,65 @@
+.card {
+  width: 190px;
+  background: rgb(74, 72, 74);
+  padding: .4em;
+  border-radius: 6px;
+  overflow: hidden; /* Ensures content doesn't spill out */
+  transition: transform 0.3s ease; /* Smooth transition for scaling effect */
+}
+
+.card:hover {
+  transform: scale(1.02); /* Slight hover effect for entire card */
+}
+
+.card-image {
+  background-color: rgb(255, 255, 255);
+  width: 100%;
+  height: 206px;
+  margin: auto;
+  border-radius: 6px 6px 0 0;
+  transition: transform 0.3s ease; /* Smooth transition on hover */
+}
+
+.card-image:hover {
+  transform: scale(1.02); /* More noticeable zoom effect on hover */
+}
+
+.category {
+  text-transform: uppercase;
+  font-size: 1em;
+  font-weight: 600;
+  color: rgb(255, 0, 0);
+  padding: 10px 7px 0;
+}
+
+.category:hover {
+  cursor: pointer;
+  text-decoration: underline; /* Added underline effect on hover */
+}
+
+.heading {
+  font-weight: 600;
+  color: rgb(255, 255, 255); /* Changed heading text color to stand out more */
+  padding: 7px;
+}
+
+.heading:hover {
+  cursor: pointer;
+  text-decoration: underline; /* Added underline effect on hover */
+}
+
+.author {
+  color: gray;
+  font-weight: 400;
+  font-size: 11px;
+  padding-top: 10px; /* Reduced padding for better spacing */
+}
+
+.name {
+  font-weight: 600;
+}
+
+.name:hover {
+  cursor: pointer;
+  color: rgb(255, 0, 0); /* Color change on hover for emphasis */
+}
