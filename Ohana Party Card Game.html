@@ -1,0 +1,395 @@
+<!--
+Ohana Party Card Game - Single-file HTML/CSS/JS
+Complete, cleaned version. Fixes previous syntax issues and includes:
+- player cards log popup (open from button under footer)
+- smoke tests (add players, build deck, shuffle, deal)
+- defensive null checks for DOM elements
+- no stray `function` tokens inside execution context
+-->
+
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>By Bey-Party Card Game</title>
+  <style>
+    :root{--bg:#0f172a;--card:#fff;--accent:#f97316;--muted:#94a3b8}
+    body{font-family:Inter,system-ui,Arial; margin:0; background:linear-gradient(180deg,#071024 0%, #0b1220 100%); color:#e6eef8; display:flex; min-height:100vh; align-items:center; justify-content:center; padding:20px}
+    .app{width:100%; max-width:980px; background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); border-radius:12px; padding:18px; box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    header{display:flex; gap:12px; align-items:center; margin-bottom:14px}
+    header h1{font-size:20px; margin:0}
+    .controls{display:flex; gap:12px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
+    input[type=text]{padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:inherit}
+    button{background:var(--accent); border:0; padding:8px 12px; border-radius:8px; color:#fff; cursor:pointer}
+    button.ghost{background:transparent; border:1px solid rgba(255,255,255,0.06)}
+    .layout{display:grid; grid-template-columns:320px 1fr; gap:16px}
+    .panel{background:rgba(255,255,255,0.02); padding:12px; border-radius:10px}
+    .players{display:flex; flex-direction:column; gap:8px}
+    .player-row{display:flex; gap:8px; align-items:center}
+    .player-name{flex:1}
+    .deck{display:flex; gap:12px; align-items:center; justify-content:center; padding:20px}
+    .card{width:160px; height:220px; border-radius:10px; background:linear-gradient(180deg,#fff 0%, #f8fafc 100%); color:#071024; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(2,6,23,0.5)}
+    .card.small{width:80px;height:110px}
+    .rank{font-size:44px; font-weight:700}
+    .suit{font-size:22px}
+    .action{margin-top:10px; font-weight:600; text-align:center}
+    .history{max-height:260px; overflow:auto; font-size:14px}
+    .action-sets{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+    label{font-size:13px; color:var(--muted)}
+    textarea{width:100%; min-height:80px; border-radius:8px; padding:8px; border:1px solid rgba(255,255,255,0.04); background:rgba(255,255,255,0.02); color:inherit}
+    footer{margin-top:12px; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted)}
+    @media (max-width:880px){.layout{grid-template-columns:1fr;}} 
+
+    /* popup styles */
+    #cardLogPopup{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(3px); align-items:center; justify-content:center}
+    #cardLogPopup .modal{background:#0f172a; padding:18px; border-radius:12px; width:90%; max-width:480px; max-height:80%; overflow:auto; box-shadow:0 8px 30px rgba(0,0,0,0.5)}
+    #cardLogPopup .modal h3{margin-top:0}
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <header>
+      <h1> Party Card Game (ເວິຊັ້ນທົດລອງ)</h1>
+      <div style="margin-left:auto;color:var(--muted)">ປັບເເຕ່ງກົດໄດ້ • ຂໍໃຫ້ມ່ວນ </div>
+    </header>
+
+    <div class="controls">
+      <div>
+        <input id="playerName" type="text" placeholder="ເພິ່ມຊື່ຜູ້ຫຼິ້ນ ແລ້ວກົດ +" aria-label="player name">
+        <button id="addPlayerBtn">+</button>
+        <button id="autoPlayers" class="ghost">ເພິ່ມຕົວຢ່າງຜູ້ຫຼິ້ນ 4 ຄົນ</button>
+      </div>
+      <div>
+        <button id="startBtn">ເລິ່ມເກມ (ສັບໄພ້)</button>
+        <button id="resetBtn" class="ghost">ເລິ່ມໃໝ່</button>
+      </div>
+      <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
+        <label style="margin-right:6px">ຊຸດໄພ້:</label>
+        <select id="deckType">
+          <option value="standard">52 ໃບ (ແນະນຳ)</option>
+          <option value="mini">12 ໃບ (ຕົວຢ່າງ)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="panel">
+        <h3>ຜູ້ຫຼິ້ນ</h3>
+        <div class="players" id="playersList">
+          <!-- player rows -->
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <!-- <button id="prevTurn" class="ghost">ย้อนเทิร์น</button> -->
+          <button id="nextTurn">ແຈກໄພ້</button>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+        <h4>ສະຖານ່ະ</h4>
+        <div class="history" id="history"></div>
+      </aside>
+
+      <main class="panel">
+        <div class="deck">
+          <div>
+            <div id="deckPile" class="card small" title="ไพ่คงเหลือ">--</div>
+            <div style="text-align:center; margin-top:6px; color:var(--muted); font-size:13px">ໄພ້ທີ່ເຫຼືອ: <span id="leftCount">0</span></div>
+          </div>
+
+          <div id="currentCard" class="card">
+            <div class="rank" id="cardRank">?</div>
+            <div class="suit" id="cardSuit">?</div>
+            <div class="action" id="cardAction">ໃຫ້ກົດ"ແຈກໄພ້"ເພື່ອເປິດ</div>
+          </div>
+        </div>
+
+        <section style="margin-top:12px">
+          <h3>ກະຕິກາ (ກຳນົດໄດ້)</h3>
+          <div class="action-sets">
+            <div>
+              <label>ຟັງຊັ້ນຂອງໄພ້ແຕ່ລ່ະໃບ :</label>
+              <textarea id="rulesText">A: ໂດນຄົນດຽວ
+2: ຫາໝູ່ໂດນນຳ 1 ຄົນ
+3: ຫາໝູ່ໂດນນຳ 2 ຄົນ
+4: ຄົນຢູ່ຂ້າງຊ້າຍໂດນ
+5: ໂດນທຸກຄົນ
+6: ຄົນຢູ່ຂ້າງຂວາໂດນ
+7: ດວນປອດ ຫາຄູ່ປະລອງ ໃຜລາກສຽງຍາວສຸດຊ່ະນ່ະ
+8: Relax (ພັກຜ່ອນໄດ້ຕາມສະບາຍ3ນາທີ)
+9: ມິນິເກມ (ກຳນົດໄດ້ເອງ)
+10: ເລະໃຊ້ແປ້ງໂປະໜ້າ
+J: ຈັບໜ້າ (ໃຜ້ຈັບໜ້າຕາມຜູ້ຖືໄພ້ຄົນສຸດທ້າຍໂດນ)
+Q: ແໝ່ມໝູ່ບໍ່ຄົບ (ໃຜເວົ້ານຳຄົນຖືໄພ້ໃບນີ້ໂດນຫຼືຕອບກັບດ້ວຍທ່າທາງໂດນ)
+K: ຢືນຂຶ້ນຫ້າມນັ່ງ (ເພິ່ມໜ້າທີ່ໄດ້ວ່າໃຫ້ເຮັດຫຍັງນຳຖ້າຝ່າຝືນໂດນ)
+</textarea>
+            </div>
+            <div>
+              <label>ໝາຍເຫດ:</label>
+              <textarea id="notes">ກຳນົດຂໍ້ຄວາມໃນຊ່ອງກະຕິກາໄດ້ຕາມຕ້ອງການ — ແຕ່ລ່ະບັນທັດໃນຮູບແບບ "RANK: ຄຳອະທິບາຍ"ເຊັ່ນ" K: ຢືນຂຶ້ນແລ້ວກຳນົດກົດຈົນກ່ວາຄົນຕໍ່ໄປ"</textarea>
+            </div>
+          </div>
+
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button id="applyRules">ບັນທຶກກະຕິກາ</button>
+            <button id="exportRules" class="ghost">ຄັດລອກກະຕິກາ</button>
+            <button id="resetRules" class="ghost">ກະຕິກາດັ້ງເດິມ</button>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <footer>
+      <div>ຄູ່ມື: ເພິ່ມຊື່ຜູ້ຫຼິ້ນ → ກົດເລິ່ມເກມ → ກົດແຈກໄພ້ ເພື່ອເປິດໄພ້ເເຕ່ລ່ະໃບ</div>
+      <div>ເວິຊັ້ນທົດລອງ by BeyBie</div>
+    </footer>
+
+    <div style="text-align:center; margin-top:10px;"><button id="cardLogListBtn" class="ghost">ເບິ່ງໄພ້ຂອງຜູ້ຫຼິ້ນ</button></div>
+
+    <!-- Smoke Test Button -->
+    <div style="margin-top:12px; text-align:center;">
+      <button id="runTests" class="ghost">ທົດສອບລ່ະບົບ (Run Test)</button>
+      <div id="testResults" style="margin-top:8px; font-size:14px; color:var(--muted)"></div>
+    </div>
+    <footer>
+        <div>
+            ຜູ້ສ້າງຜູ້ພັດທະນາ=<p>FB:<a href="https://www.facebook.com/BayGamerZ/">xaypadid phetpaseuth</a></p>
+            <p>IG:<a href="https://www.instagram.com/bey_bie_?igsh=MWlyNmRkZ24xazdoYw%3D%3D&utm_source=qr">@Bey_Bie_</a></p>
+        </div>
+        <div>
+            ເກມຕົ້ນສະບັບແລະແຮງບັນດານໃຈ=<p>YT:<a href="https://youtu.be/9MTUJmXGZBw?si=A98-6AdM1lK8QHev">OHANA</a></p>
+        </div>
+        <!-- <div>ຜູ້ສ້າງຜູ້ພັດທະນາ=FB:xaypadid phetpaseuth</div>
+        <div>ເກມຕົ້ນສະບັບແລະແຮງບັນດານໃຈ= OHANA </div> -->
+    </footer>
+  </div>
+
+  <!-- Popup for card log -->
+  <div id="cardLogPopup">
+    <div class="modal">
+      <h3>ໄພ້ທີ່ຜູ້ຫຼິ້ນແຕ່ລ່ະຄົນໄດ້ຮັບ</h3>
+      <div id="cardLogList" style="margin-top:10px; font-size:15px; line-height:1.5"></div>
+      <button id="closeCardLog" style="margin-top:15px; width:100%" class="ghost">ປິດ</button>
+    </div>
+  </div>
+
+  <script>
+    // Data model
+    const ranksFull = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+    const suits = ['♠','♥','♦','♣'];
+
+    let players = []; // each player: {name, cards: []}
+    let deck = [];
+    let discard = [];
+    let currentPlayerIndex = 0;
+    let rules = {};
+
+    // DOM helpers (guarded queries)
+    const $ = (id)=>document.getElementById(id);
+    const playersList = $('playersList');
+    const playerNameInput = $('playerName');
+    const addPlayerBtn = $('addPlayerBtn');
+    const autoPlayersBtn = $('autoPlayers');
+    const startBtn = $('startBtn');
+    const resetBtn = $('resetBtn');
+    const deckType = $('deckType');
+    const leftCount = $('leftCount');
+    const deckPile = $('deckPile');
+    const cardRank = $('cardRank');
+    const cardSuit = $('cardSuit');
+    const cardAction = $('cardAction');
+    const historyEl = $('history');
+    const nextTurnBtn = $('nextTurn');
+    const prevTurnBtn = $('prevTurn');
+    const rulesText = $('rulesText');
+    const applyRulesBtn = $('applyRules');
+    const exportRulesBtn = $('exportRules');
+    const resetRulesBtn = $('resetRules')
+    const runTestsBtn = $('runTests');
+    const testResults = $('testResults');
+    const cardLogListBtn = $('cardLogListBtn');
+    const cardLogPopup = $('cardLogPopup');
+    const cardLogList = $('cardLogList');
+    const closeCardLog = $('closeCardLog');
+
+    function renderPlayers(){
+      if(!playersList) return;
+      playersList.innerHTML = '';
+      players.forEach((p, i)=>{
+        const row = document.createElement('div'); row.className='player-row';
+        const name = document.createElement('div'); name.className='player-name'; name.textContent = (i===currentPlayerIndex? '👉 ':'') + p.name;
+        const remove = document.createElement('button'); remove.className='ghost'; remove.textContent='x';
+        remove.onclick = ()=>{ players.splice(i,1); if(currentPlayerIndex>=players.length) currentPlayerIndex = Math.max(0, players.length-1); renderPlayers(); }
+        row.appendChild(name); row.appendChild(remove);
+        playersList.appendChild(row);
+      });
+      if(players.length===0 && playersList) playersList.innerHTML='<div style="color:var(--muted)">ຍັງບໍ່ມີຜູ້ເລ່ນ — ເພິ່ມຊື່ດ້ານເທິງ</div>'
+    }
+
+    function addPlayer(name){ if(!name) return; players.push({name: name, cards: []}); if(playerNameInput) playerNameInput.value=''; renderPlayers(); }
+    addPlayerBtn && addPlayerBtn.addEventListener('click', ()=> addPlayer((playerNameInput && playerNameInput.value.trim()) || 'Player'));
+    autoPlayersBtn && autoPlayersBtn.addEventListener('click', ()=>{ ['Bot1','Bot2','Bot3','Bot4'].forEach(n=>addPlayer(n)); });
+
+    function buildDeck(type){
+      const arr = [];
+      if(type==='mini'){
+        for(let i=0;i<12;i++){ arr.push({rank:ranksFull[i%ranksFull.length], suit:suits[i%4]}); }
+      } else {
+        suits.forEach(s=> ranksFull.forEach(r=> arr.push({rank:r, suit:s})))
+      }
+      return arr;
+    }
+
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } }
+
+    function startGame(){
+      deck = buildDeck(deckType ? deckType.value : 'standard');
+      shuffle(deck);
+      discard = [];
+      currentPlayerIndex = 0;
+      updateLeftCount();
+      log('ເລິ່ມເກມ — ໄພ້ຖືກສັບເເລ້ວ');
+      renderPlayers();
+      showBackCard();
+    }
+
+    function resetGame(){ players=[]; deck=[]; discard=[]; currentPlayerIndex=0; rules={}; renderPlayers(); updateLeftCount(); showBackCard(); if(historyEl) historyEl.innerHTML=''; if(cardAction) cardAction.textContent='ໃຫ້ກົດ"ແຈກໄພ້"ເພື່ອເປິດ'; }
+
+    function updateLeftCount(){ if(leftCount) leftCount.textContent = deck.length; if(deckPile) deckPile.textContent = deck.length; }
+
+    function showBackCard(){ if(cardRank) cardRank.textContent='?'; if(cardSuit) cardSuit.textContent=''; if(cardAction) cardAction.textContent='ໃຫ້ກົດ"ແຈກໄພ້"ເພື່ອເປິດ'; }
+
+    // dealCard as a stable function (no stray 'function' inside execution)
+    function dealCard(){
+      if(deck.length===0){ alert('ໄພ້ໝົດສຳລັບເເລ້ວ — ໃຫ້ກົດເລິ່ມໃໝ່ຫຼືລີເຊັດ'); return; }
+      const card = deck.shift();
+      discard.unshift(card);
+      updateLeftCount();
+      displayCard(card);
+
+      const action = getActionForRank(card.rank);
+      const player = players[currentPlayerIndex] || {name:'(ຄົນທີ '+(currentPlayerIndex+1)+')', cards: []};
+
+      // record to player's card log
+      if(player.cards) player.cards.push(card);
+      updateCardLogPopup();
+
+      const entry = `${player.name} ເປິດ ${card.rank}${card.suit} — ${action}`;
+      log(entry);
+
+      // advance turn
+      currentPlayerIndex = (currentPlayerIndex + 1) % Math.max(1, players.length);
+      renderPlayers();
+    }
+
+    function displayCard(card){ if(cardRank) cardRank.textContent = card.rank; if(cardSuit) cardSuit.textContent = card.suit; if(cardAction) cardAction.textContent = getActionForRank(card.rank); }
+
+    function getActionForRank(rank){ return rules[rank] || 'ບໍ່ໄດ້ກຳນົດກະຕິກາ'; }
+
+    function log(text){ if(!historyEl) return; const el = document.createElement('div'); el.textContent = '['+new Date().toLocaleTimeString()+'] '+text; historyEl.prepend(el); }
+
+    if(nextTurnBtn) nextTurnBtn.addEventListener('click', ()=> dealCard());
+    if(prevTurnBtn) prevTurnBtn.addEventListener('click', ()=>{ // undo: move last discard back to deck
+      if(discard.length===0){ alert('ຍັງບໍ່ມີໄພ້ເປິດ'); return; }
+      const last = discard.shift(); deck.unshift(last); currentPlayerIndex = (currentPlayerIndex-1 + Math.max(1,players.length)) % Math.max(1,players.length); updateLeftCount(); log('ຍ້ອນກັບ: ນຳໄພ້ກັບເຂົ້າກອງ'); showBackCard(); renderPlayers(); });
+
+    if(startBtn) startBtn.addEventListener('click', ()=> startGame());
+    if(resetBtn) resetBtn.addEventListener('click', ()=>{ if(confirm('ລີເຊັດເກມທັງໝົດ?')) resetGame(); });
+
+    if(applyRulesBtn) applyRulesBtn.addEventListener('click', ()=>{
+      rules = {};
+      const lines = (rulesText ? rulesText.value : '').split('\n');
+      lines.forEach(line=>{
+        const idx = line.indexOf(':'); if(idx===-1) return; const k = line.slice(0,idx).trim(); const v = line.slice(idx+1).trim(); if(k) rules[k]=v;
+      });
+      log('ກະຕິກາໃໝ່ຖືກບັນທຶກແລ້ວ');
+      alert('ກະຕິກາຖືກບັນທຶກເເລ້ວ');
+    });
+
+    if(exportRulesBtn) exportRulesBtn.addEventListener('click', ()=>{ navigator.clipboard.writeText(rulesText ? rulesText.value : '').then(()=>alert('ຕັດລອກກະຕິກາເເລ້ວ')); });
+
+    if(resetRulesBtn) resetRulesBtn.addEventListener('click', ()=>{
+if(rulesText){
+rulesText.value = `A: ໂດນຄົນດຽວ
+2: ຫາໝູ່ໂດນນຳ 1 ຄົນ
+3: ຫາໝູ່ໂດນນຳ 2 ຄົນ
+4: ຄົນຢູ່ຂ້າງຊ້າຍໂດນ
+5: ໂດນທຸກຄົນ
+6: ຄົນຢູ່ຂ້າງຂວາໂດນ
+7: ດວນປອດ ຫາຄູ່ປະລອງ ໃຜລາກສຽງຍາວສຸດຊ່ະນ່ະ
+8: Relax (ພັກຜ່ອນໄດ້ຕາມສະບາຍ3ນາທີ)
+9: ມິນິເກມ (ກຳນົດໄດ້ເອງ)
+10: ເລະໃຊ້ແປ້ງໂປະໜ້າ
+J: ຈັບໜ້າ (ໃຜ້ຈັບໜ້າຕາມຜູ້ຖືໄພ້ຄົນສຸດທ້າຍໂດນ)
+Q: ແໝ່ມໝູ່ບໍ່ຄົບ (ໃຜເວົ້ານຳຄົນຖືໄພ້ໃບນີ້ໂດນຫຼືຕອບກັບດ້ວຍທ່າທາງໂດນ)
+K: ຢືນຂຶ້ນຫ້າມນັ່ງ (ເພິ່ມໜ້າທີ່ໄດ້ວ່າໃຫ້ເຮັດຫຍັງນຳຖ້າຝ່າຝືນໂດນ)`;
+}
+applyRulesBtn && applyRulesBtn.click();
+log('ລີເຊັດກະຕິກາເປັນຄ່າເລິ່ມຕົ້ນ');
+alert('ກະຕິກາຖືກລີເຊັດເປັນຄ່າເລິ່ມຕົ້ນ');
+});
+
+    // Init defaults
+    if(rulesText) rulesText.value = 'A: ໂດນຄົນດຽວ\n2: ຫາໝູ່ໂດນນຳ 1 ຄົນ\n3: ຫາໝູ່ໂດນນຳ 2 ຄົນ\n4: ຄົນຢູ່ຂ້າງຊ້າຍໂດນ\n5: ໂດນທຸກຄົນ\n6: ຄົນຢູ່ຂ້າງຂວາໂດນ\n7: ດວນປອດ ຫາຄູ່ປະລອງ ໃຜລາກສຽງຍາວສຸດຊ່ະນ່ະ\n8: Relax (ພັກຜ່ອນໄດ້ຕາມສະບາຍ3ນາທີ)\n9: ມິນິເກມ (ກຳນົດໄດ້ເອງ)\n10: ເລະໃຊ້ແປ້ງໂປະໜ້າ\nJ: ຈັບໜ້າ (ໃຜ້ຈັບໜ້າຕາມຜູ້ຖືໄພ້ຄົນສຸດທ້າຍໂດນ)\nQ: ແໝ່ມໝູ່ບໍ່ຄົບ (ໃຜເວົ້ານຳຄົນຖືໄພ້ໃບນີ້ໂດນຫຼືຕອບກັບດ້ວຍທ່າທາງໂດນ)\nK: ຢືນຂຶ້ນຫ້າມນັ່ງ (ເພິ່ມໜ້າທີ່ໄດ້ວ່າໃຫ້ເຮັດຫຍັງນຳຖ້າຝ່າຝືນໂດນ)';
+    try{ if(applyRulesBtn) applyRulesBtn.click(); }catch(e){}
+
+    // Smoke tests
+    function runSmokeTests(){
+      let output = [];
+      try{
+        // test add player
+        players = [];
+        addPlayer('Test1');
+        addPlayer('Test2');
+        output.push(players.length===2 ? '✓ ເພິ່ມຜູ້ຫຼິ້ນທຳງານຖືກຕ້ອງ' : '✗ ເພິ່ມຜູ້ຫຼິ້ນຜິດພາດ');
+
+        // test build & shuffle deck
+        let d = buildDeck('standard');
+        output.push(d.length===52 ? '✓ ສ້າງສຳລັບ 52 ໃບຖືກຕ້ອງ' : '✗ ຜິດພາດສຳລັບບໍ່ຄົບ');
+
+        shuffle(d);
+        output.push('✓ ສັບໄພ້ທຳງານ (ບໍ່ error)');
+
+        // test deal
+        deck = buildDeck('mini');
+        shuffle(deck);
+        discard = [];
+        currentPlayerIndex = 0;
+        players = [{name:'A', cards: []},{name:'B', cards: []}];
+        let before = deck.length;
+        dealCard();
+        let after = deck.length;
+
+        output.push(after === before-1 ? '✓ ແຈກໄພ້ທຳງານຖືກຕ້ອງ' : '✗ ແຈກໄພ້ຈຳນວນບໍ່ລົດ');
+
+      }catch(e){
+        output.push('✗ ERROR: '+e.message);
+      }
+      if(testResults) testResults.innerHTML = output.join('<br>');
+    }
+    if(runTestsBtn) runTestsBtn.addEventListener('click', runSmokeTests);
+
+    // Card log popup functions
+    function updateCardLogPopup(){
+      if(!cardLogList) return;
+      let html = '';
+      players.forEach(p=>{
+        html += '<div style="margin-bottom:6px"><strong>'+p.name+':</strong> '+((p.cards||[]).map(c=>c.rank+c.suit).join(', ') || '-')+'</div>';
+      });
+      cardLogList.innerHTML = html;
+    }
+
+    if(cardLogListBtn) cardLogListBtn.addEventListener('click', ()=>{ if(cardLogPopup) cardLogPopup.style.display = 'flex'; updateCardLogPopup(); });
+    if(closeCardLog) closeCardLog.addEventListener('click', ()=>{ if(cardLogPopup) cardLogPopup.style.display = 'none'; });
+
+    // helpful keyboard
+    document.addEventListener('keydown', e=>{ if(e.key===' '){ e.preventDefault(); dealCard(); } if(e.key==='Enter'){ if(document.activeElement===playerNameInput) addPlayer((playerNameInput && playerNameInput.value.trim()) || 'Player'); } });
+
+    // render initial
+    renderPlayers(); updateLeftCount();
+  </script>
+  <!-- <div>
+
+    </div> -->
+</body>
+</html>
